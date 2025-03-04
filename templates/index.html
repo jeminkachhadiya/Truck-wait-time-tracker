@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truck Wait Time Tracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .split-screen {
+            display: flex;
+            justify-content: space-between;
+        }
+        .split-screen > div {
+            width: 48%;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="mb-4">Truck Wait Time Tracker</h1>
+
+    <div class="split-screen mb-4">
+        <!-- Check-In Section -->
+        <div>
+            <h2>🚚 Check-In New Truck</h2>
+            <form id="checkin-form">
+                <div class="form-group mb-2">
+                    <label for="driver-name">Driver Name*</label>
+                    <input type="text" id="driver-name" class="form-control" required>
+                </div>
+                <div class="form-group mb-2">
+                    <label for="load-number">Load Number*</label>
+                    <input type="text" id="load-number" class="form-control" required>
+                </div>
+                <div class="form-group mb-2">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" class="form-control"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Check In</button>
+            </form>
+        </div>
+
+        <!-- Active Trucks Section -->
+        <div id="active-section"></div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item"><a class="nav-link active" id="completed-tab" href="#">Completed Trucks</a></li>
+        <li class="nav-item"><a class="nav-link" id="analysis-tab" href="#">Wait Time Analysis</a></li>
+    </ul>
+
+    <!-- Completed Trucks -->
+    <div id="completed-section"></div>
+
+    <!-- Wait Time Analysis -->
+    <div id="analysis-section"></div>
+
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
