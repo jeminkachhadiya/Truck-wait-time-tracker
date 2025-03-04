@@ -35,12 +35,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     <strong>Arrival Time:</strong> ${new Date(truck.arrival_time).toLocaleString()}<br>
                     <button class="btn btn-warning btn-sm checkout-btn" data-truck-id="${truck.id}">Check Out</button>
                 </div><hr>`;
-    });
+        });
 
         // Add event listeners to checkout buttons
         document.querySelectorAll('.checkout-btn').forEach(button => {
             button.addEventListener('click', handleCheckout);
         });
+    }
+
+    // Convert seconds into HH:MM:SS format
+    function formatTime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${String(hours).padStart(1, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
 
     // Handle truck check-out
@@ -65,21 +73,73 @@ document.addEventListener('DOMContentLoaded', () => {
         if (startDate && endDate) {
             url += `&start_date=${startDate}&end_date=${endDate}`;
         }
+    
         const response = await fetch(url);
         const trucks = await response.json();
+
+        // Sort trucks by departure time (latest first)
+        trucks.sort((a, b) => new Date(b.departure_time) - new Date(a.departure_time));
+    
         const completedSection = document.getElementById('completed-section');
         completedSection.innerHTML = '<h2>Completed Trucks</h2>';
+    
         trucks.forEach(truck => {
+            // Calculate wait time in seconds
+            let waitTimeInSeconds = 0;
+            if (truck.departure_time && truck.arrival_time) {
+                const arrivalTime = new Date(truck.arrival_time).getTime();
+                const departureTime = new Date(truck.departure_time).getTime();
+                waitTimeInSeconds = Math.floor((departureTime - arrivalTime) / 1000); // Convert milliseconds to seconds
+            }
+    
+            // Format wait time using the formatTime function
+            const formattedWaitTime = formatTime(waitTimeInSeconds);
+    
             completedSection.innerHTML += `
-                <div>
+                <div class="truck-entry">
                     <strong>Load Number:</strong> ${truck.load_number}<br>
                     <strong>Driver Name:</strong> ${truck.driver_name}<br>
                     <strong>Arrival Time:</strong> ${new Date(truck.arrival_time).toLocaleString()}<br>
                     <strong>Departure Time:</strong> ${new Date(truck.departure_time).toLocaleString()}<br>
-                    <strong>Wait Time:</strong> ${truck.wait_time}
+                    <strong>Wait Time:</strong> ${formattedWaitTime}<br>
+                    <button class="btn btn-secondary btn-sm edit-btn" data-truck-id="${truck.id}">Edit</button>
                 </div><hr>`;
         });
-    }
+    
+        // Add event listeners to edit buttons
+        document.querySelectorAll('.edit-btn').forEach(button => {
+            button.addEventListener('click', handleEdit);
+        });
+    }    
+    
+    async function handleEdit(e) {
+        const truckId = e.target.getAttribute('data-truck-id');
+
+        const newLoadNumber = prompt('Enter new Load Number (leave blank to keep unchanged):');
+        const newDriverName = prompt('Enter new Driver Name (leave blank to keep unchanged):');
+        const newNotes = prompt('Enter new Notes (leave blank to keep unchanged):');
+
+        const password = prompt('Enter password:');
+
+        const response = await fetch(`/api/truck-edit/${truckId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                load_number: newLoadNumber || undefined,
+                driver_name: newDriverName || undefined,
+                notes: newNotes || undefined,
+                password: password
+            })
+        });
+        
+        if (response.ok) {
+            alert('Truck record updated successfully');
+            loadCompletedTrucks(); // Reload completed trucks list
+        } else {
+            const errorData = await response.json();
+            alert(`Failed to update record: ${errorData.error || 'Unknown error'}`);
+        }
+    }    
 
     // Load wait time analysis into the "Wait Time Analysis" tab
     async function loadWaitTimeAnalysis(startDate, endDate) {
@@ -87,42 +147,115 @@ document.addEventListener('DOMContentLoaded', () => {
         if (startDate && endDate) {
             url += `?start_date=${startDate}&end_date=${endDate}`;
         }
+    
         const response = await fetch(url);
-        const analysisData = await response.json();
+        const { analysis, graph } = await response.json();
+    
         const analysisSection = document.getElementById('analysis-section');
         analysisSection.innerHTML = `
-            <h2>Wait Time Analysis</h2>
-            <p><strong>Average Wait Time:</strong> ${analysisData.average_wait_time} minutes</p>
-            <p><strong>Longest Wait Time:</strong> ${analysisData.longest_wait} minutes</p>
-            <p><strong>Total Trucks Processed:</strong> ${analysisData.total_trucks_processed}</p>`;
-    }
-
+            <div class="row">
+                <div class="col-md-4">
+                    <h3>Date Filters</h3>
+                    <div class="form-group mb-3">
+                        <label for="analysis-start-date">Start Date:</label>
+                        <input type="date" id="analysis-start-date" class="form-control">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="analysis-end-date">End Date:</label>
+                        <input type="date" id="analysis-end-date" class="form-control">
+                    </div>
+                    <button id="analysis-filter-btn" class="btn btn-secondary mt-2">Filter</button>
+                    <hr>
+                    <p><strong>Average Wait Time:</strong> ${formatTime(Math.round(analysis.average_wait_time * 60))}</p>
+                    <p><strong>Longest Wait Time:</strong> ${formatTime(Math.round(analysis.longest_wait * 60))}</p>
+                    <p><strong>Total Trucks Processed:</strong> ${analysis.total_trucks_processed}</p>
+                </div>
+                <div class="col-md-8">
+                    <h3>Wait Time Analysis</h3>
+                    <canvas id="waitTimeChart"></canvas>
+                </div>
+            </div>`;
+    
+        // Render Chart.js graph after ensuring data is loaded
+        const ctx = document.getElementById('waitTimeChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: graph.labels, // Load numbers
+                datasets: [{
+                    label: 'Wait Time',
+                    data: graph.values.map(value => Math.round(value * 60)), // Convert minutes to seconds
+                    backgroundColor: ['rgba(75, 192, 192, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)'],
+                    borderColor: ['rgba(75, 192, 192, 1)', 'rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const seconds = context.raw; // Raw value is in seconds
+                                const formattedTime = formatTime(seconds); // Format as HH:MM:SS
+                                const driverName = graph.driverNames[context.dataIndex]; // Driver name from backend
+                                return [`Wait Time: ${formattedTime}`,`Driver Name: ${driverName}`];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Load Numbers' }
+                    },
+                    y: {
+                        title: { display: true, text: 'Wait Time (seconds)' },
+                        ticks: {
+                            callback: value => formatTime(value) // Format y-axis values as HH:MM:SS
+                        }
+                    }
+                }
+            }
+        });
+    
+        // Add event listener for date filter button
+        document.getElementById('analysis-filter-btn').addEventListener('click', () => {
+            const startDateInput = document.getElementById('analysis-start-date').value;
+            const endDateInput = document.getElementById('analysis-end-date').value;
+            loadWaitTimeAnalysis(startDateInput, endDateInput);
+        });
+    }    
+    
     // Handle tab navigation
+    // Tab switching logic
     document.querySelectorAll('.nav-link').forEach(tab => {
         tab.addEventListener('click', (e) => {
             e.preventDefault();
+            // Remove 'active' class from all tabs
             document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+            // Add 'active' class to the clicked tab
             e.target.classList.add('active');
-
+    
+            // Show/hide sections based on the clicked tab
             if (e.target.id === 'active-tab') {
-                loadActiveTrucks();
                 document.getElementById('active-section').style.display = 'block';
                 document.getElementById('completed-section').style.display = 'none';
                 document.getElementById('analysis-section').style.display = 'none';
+                loadActiveTrucks(); // Load active trucks when switching to this tab
             } else if (e.target.id === 'completed-tab') {
-                loadCompletedTrucks();
                 document.getElementById('active-section').style.display = 'none';
                 document.getElementById('completed-section').style.display = 'block';
                 document.getElementById('analysis-section').style.display = 'none';
+                loadCompletedTrucks(); // Load completed trucks when switching to this tab
             } else if (e.target.id === 'analysis-tab') {
-                loadWaitTimeAnalysis();
                 document.getElementById('active-section').style.display = 'none';
                 document.getElementById('completed-section').style.display = 'none';
                 document.getElementById('analysis-section').style.display = 'block';
+                loadWaitTimeAnalysis(); // Load analysis data when switching to this tab
             }
         });
     });
-
-    // Initial load
-    loadActiveTrucks();
+    
+    // Initial load: Show active trucks by default
+    document.getElementById('active-tab').click();  
 });
