@@ -47,7 +47,10 @@ def get_trucks():
     query = Truck.query
     if status == 'completed':
         query = query.filter(Truck.departure_time.isnot(None))
-        if start_date and end_date:
+        if not start_date and not end_date:
+            today = datetime.now().date()
+            query = query.filter(db.func.date(Truck.departure_time) == today)
+        elif start_date and end_date:
             query = query.filter(Truck.departure_time.between(start_date, end_date))
     else:
         query = query.filter(Truck.departure_time.is_(None))
@@ -63,6 +66,26 @@ def get_trucks():
         'notes': truck.notes
     } for truck in trucks])
 
+@app.route('/api/truck-edit/<int:truck_id>', methods=['PUT'])
+def truck_edit(truck_id):
+    data = request.json
+    password = data.get('password')
+    
+    # Verify password
+    if password != '247@247':
+        return jsonify({'error': 'Unauthorized access. Incorrect password.'}), 403
+    
+    # Fetch the truck record
+    truck = Truck.query.get_or_404(truck_id)
+    
+    # Update fields if provided
+    truck.load_number = data.get('load_number', truck.load_number)
+    truck.driver_name = data.get('driver_name', truck.driver_name)
+    truck.notes = data.get('notes', truck.notes)
+    db.session.commit()
+    
+    return jsonify({'message': 'Truck record updated successfully'}), 200
+
 @app.route('/api/wait-time-analysis', methods=['GET'])
 def wait_time_analysis():
     start_date = request.args.get('start_date')
@@ -71,20 +94,32 @@ def wait_time_analysis():
     query = Truck.query.filter(Truck.departure_time.isnot(None))
     if start_date and end_date:
         query = query.filter(Truck.departure_time.between(start_date, end_date))
+    else:
+        today = datetime.now().date()
+        query = query.filter(db.func.date(Truck.departure_time) == today)
 
     trucks = query.all()
-    
+
     total_wait_times = [
         (truck.departure_time - truck.arrival_time).total_seconds() / 60 for truck in trucks
     ]
-    
+
     analysis_data = {
         'average_wait_time': round(sum(total_wait_times) / len(total_wait_times), 2) if total_wait_times else 0,
         'longest_wait': round(max(total_wait_times), 2) if total_wait_times else 0,
         'total_trucks_processed': len(trucks)
     }
-    
-    return jsonify(analysis_data)
+
+    # Data for graph
+    graph_data = {
+        'labels': [truck.load_number for truck in trucks],
+        'values': total_wait_times,
+        'driverNames': [truck.driver_name for truck in trucks]
+    }
+
+    return jsonify({'analysis': analysis_data, 'graph': graph_data})
+
+
 
 if __name__ == '__main__':
     with app.app_context():

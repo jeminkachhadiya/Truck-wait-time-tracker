@@ -39,16 +39,17 @@
                 <button type="submit" class="btn btn-primary">Check In</button>
             </form>
         </div>
-
-        <!-- Active Trucks Section -->
-        <div id="active-section"></div>
     </div>
 
     <!-- Tabs -->
     <ul class="nav nav-tabs mb-4">
-        <li class="nav-item"><a class="nav-link active" id="completed-tab" href="#">Completed Trucks</a></li>
+        <li class="nav-item"><a class="nav-link active" id="active-tab" href="#">Active Trucks</a></li>
+        <li class="nav-item"><a class="nav-link" id="completed-tab" href="#">Completed Trucks</a></li>
         <li class="nav-item"><a class="nav-link" id="analysis-tab" href="#">Wait Time Analysis</a></li>
     </ul>
+
+    <!-- Active Trucks -->
+    <div id="active-section"></div>
 
     <!-- Completed Trucks -->
     <div id="completed-section"></div>
@@ -58,6 +59,8 @@
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
+
 </body>
 </html>
