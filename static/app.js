@@ -67,6 +67,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${String(hours).padStart(1, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
 
+    // Add one day to a date string
+    function addOneDay(dateString) {
+        const date = new Date(dateString);
+        date.setDate(date.getDate() + 1);
+        return date.toLocaleDateString();
+    }
+
     // Handle truck check-out
     async function handleCheckout(e) {
         const truckId = e.target.getAttribute('data-truck-id');
@@ -88,7 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let url = '/api/trucks?status=completed';
         if (startDate && endDate) {
             url += `&start_date=${startDate}&end_date=${endDate}`;
-        }
+            dateRangeText = `Showing records from ${addOneDay(startDate)} to ${addOneDay(endDate)}`;
+            } else {
+                const today = new Date().toLocaleDateString();
+                dateRangeText = `Showing records for today (${today})`;
+            }
     
         const response = await fetch(url);
         const trucks = await response.json();
@@ -101,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="row">
                 <div class="col-md-9">
                     <h2>Completed Trucks</h2>
+                    <p class="text-muted">${dateRangeText}</p>
                     <div id="completed-trucks-list" class="table-responsive">
                         <table class="table table-striped">
                             <thead>
@@ -248,6 +260,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let url = '/api/wait-time-analysis';
         if (startDate && endDate) {
             url += `?start_date=${startDate}&end_date=${endDate}`;
+            dateRangeText = `Showing records from ${addOneDay(startDate)} to ${addOneDay(endDate)}`;
+        } else {
+            const today = new Date().toLocaleDateString();
+            dateRangeText = `Analysis for today's records (${today})`;
         }
     
         const response = await fetch(url);
@@ -275,6 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="col-md-8">
                     <h3>Wait Time Graph</h3>
+                    <p class="text-muted">${dateRangeText}</p>
                     <canvas id="waitTimeChart"></canvas>
                 </div>
             </div>`;
