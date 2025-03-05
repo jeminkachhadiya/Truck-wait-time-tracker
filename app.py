@@ -79,11 +79,11 @@ def get_trucks():
 @app.route('/api/truck-edit/<int:truck_id>', methods=['PUT'])
 def truck_edit(truck_id):
     data = request.json
-    password = data.get('password')
+    # password = data.get('password')
     
-    # Verify password
-    if password != '0000':
-        return jsonify({'error': 'Unauthorized access. Incorrect password.'}), 403
+    # # Verify password
+    # if password != '0000':
+    #     return jsonify({'error': 'Unauthorized access. Incorrect password.'}), 403
     
     # Fetch the truck record
     truck = Truck.query.get_or_404(truck_id)
@@ -95,6 +95,26 @@ def truck_edit(truck_id):
     db.session.commit()
     
     return jsonify({'message': 'Truck record updated successfully'}), 200
+
+
+@app.route('/api/truck-delete/<int:truck_id>', methods=['DELETE'])
+def truck_delete(truck_id):
+    data = request.json
+    password = data.get('password')
+    
+    # Verify password
+    if password != '247@247':
+        return jsonify({'error': 'Unauthorized access. Incorrect password.'}), 403
+    
+    # Fetch the truck record
+    truck = Truck.query.get_or_404(truck_id)
+    
+    # Delete the truck
+    db.session.delete(truck)
+    db.session.commit()
+    
+    return jsonify({'message': 'Truck record deleted successfully'}), 200
+
 
 @app.route('/api/wait-time-analysis', methods=['GET'])
 def wait_time_analysis():

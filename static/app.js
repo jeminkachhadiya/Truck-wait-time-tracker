@@ -45,13 +45,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     <strong>Driver Name:</strong> ${truck.driver_name}<br>
                     <strong>Arrival Time:</strong> ${new Date(truck.arrival_time).toLocaleString()}<br>
                     <button class="btn btn-warning btn-sm checkout-btn" data-truck-id="${truck.id}">Check Out</button>
+                    <button class="btn btn-danger btn-sm delete-btn" data-truck-id="${truck.id}">Delete</button>
                 </div><hr>`;
         });
 
-        // Add event listeners to checkout buttons
+        // Add event listeners to checkout and delete buttons
         document.querySelectorAll('.checkout-btn').forEach(button => {
             button.addEventListener('click', handleCheckout);
         });
+        document.querySelectorAll('.delete-btn').forEach(button => {
+            button.addEventListener('click', handleDelete);
+        });
+        
     }
 
     // Convert seconds into HH:MM:SS format
@@ -115,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="col-md-3">
                     <br><br>
                     <h5>Date Filter (Arrival Time)</h5>
+                    <hr>
                     <div class="form-group mb-3">
                         <label for="completed-start-date">Start Date:</label>
                         <input type="date" id="completed-start-date" class="form-control">
@@ -144,23 +150,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${new Date(truck.arrival_time).toLocaleString()}</td>
                     <td>${new Date(truck.departure_time).toLocaleString()}</td>
                     <td>${formattedWaitTime}</td>
-                    <td><button class="btn btn-secondary btn-sm edit-btn" data-truck-id="${truck.id}">Edit</button></td>
+                    <td>
+                    <button class="btn btn-secondary btn-sm edit-btn" data-truck-id="${truck.id}">Edit</button>
+                    <button class="btn btn-danger btn-sm delete-btn" data-truck-id="${truck.id}">Delete</button>
+                    </td>
                 </tr>`;
         });
     
-        // Add event listeners to edit buttons
+        // Add event listeners to edit and delete buttons
         document.querySelectorAll('.edit-btn').forEach(button => {
             button.addEventListener('click', handleEdit);
         });
+        document.querySelectorAll('.delete-btn').forEach(button => {
+            button.addEventListener('click', handleDelete);
+        });
+        
     
         // Add event listener for date filter button
         document.getElementById('completed-filter-btn').addEventListener('click', () => {
             const startDateInput = document.getElementById('completed-start-date').value;
-            const endDateInput = document.getElementById('completed-end-date').value;
+            let endDateInput = document.getElementById('completed-end-date').value;
+            
+            // If end date is not selected, use current date
+            if (!endDateInput) {
+                const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+                endDateInput = today;
+                document.getElementById('completed-end-date').value = today; // Update the input field
+            }
+            
             loadCompletedTrucks(startDateInput, endDateInput);
         });
     }    
     
+
     // Handle truck record editing
     async function handleEdit(e) {
         const truckId = e.target.getAttribute('data-truck-id');
@@ -170,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { label: 'Enter new Load Number (leave blank to keep unchanged):', key: 'load_number' },
             { label: 'Enter new Driver Name (leave blank to keep unchanged):', key: 'driver_name' },
             { label: 'Enter new Notes (leave blank to keep unchanged):', key: 'notes' },
-            { label: 'Enter password:', key: 'password' }
+            // { label: 'Enter password:', key: 'password' }
         ];
     
         const updatedData = {};
@@ -196,6 +218,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }    
 
+
+    // Handle truck record deletion
+    async function handleDelete(e) {
+        const truckId = e.target.getAttribute('data-truck-id');
+        const password = prompt('Enter password to delete:');
+        
+        if (password === null) return; // User cancelled the prompt
+        
+        const response = await fetch(`/api/truck-delete/${truckId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: password })
+        });
+    
+        if (response.ok) {
+            alert('Truck record deleted successfully');
+            loadActiveTrucks(); // Reload active trucks
+            loadCompletedTrucks(); // Reload completed trucks
+        } else {
+            const errorData = await response.json();
+            alert(`Failed to delete record: ${errorData.error || 'Unknown error'}`);
+        }
+    }
+    
+
     // Load wait time analysis into the "Wait Time Analysis" tab
     async function loadWaitTimeAnalysis(startDate, endDate) {
         let url = '/api/wait-time-analysis';
@@ -211,6 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="row">
                 <div class="col-md-4">
                     <h5>Date Filter (Arrival Time)</h5>
+                    <hr>
                     <div class="form-group mb-3">
                         <label for="analysis-start-date">Start Date:</label>
                         <input type="date" id="analysis-start-date" class="form-control">
@@ -226,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p><strong>Total Trucks Processed:</strong> ${analysis.total_trucks_processed}</p>
                 </div>
                 <div class="col-md-8">
-                    <h3>Wait Time Analysis</h3>
+                    <h3>Wait Time Graph</h3>
                     <canvas id="waitTimeChart"></canvas>
                 </div>
             </div>`;
@@ -264,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         title: { display: true, text: 'Load Numbers' }
                     },
                     y: {
-                        title: { display: true, text: 'Wait Time (seconds)' },
+                        title: { display: true, text: 'Wait Time' },
                         ticks: {
                             callback: value => formatTime(value) // Format y-axis values as HH:MM:SS
                         }
@@ -276,7 +324,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add event listener for date filter button
         document.getElementById('analysis-filter-btn').addEventListener('click', () => {
             const startDateInput = document.getElementById('analysis-start-date').value;
-            const endDateInput = document.getElementById('analysis-end-date').value;
+            let endDateInput = document.getElementById('analysis-end-date').value;
+            
+            // If end date is not selected, use current date
+            if (!endDateInput) {
+                const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+                endDateInput = today;
+                document.getElementById('analysis-end-date').value = today; // Update the input field
+            }
+            
             loadWaitTimeAnalysis(startDateInput, endDateInput);
         });
     }    
