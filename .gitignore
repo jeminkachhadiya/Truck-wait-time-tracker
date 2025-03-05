@@ -1,7 +1,5 @@
+# library files
 *venv/
-
-# Executable files
-*.exe
 *.out
 *.app
 *.spec

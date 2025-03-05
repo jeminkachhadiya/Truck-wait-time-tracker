@@ -146,6 +146,26 @@ The application features a clean, intuitive interface with three main sections:
    - Verify information before editing records
    - Regular database backups recommended
 
+## Creating Executable Version
+
+To create a standalone executable version of the application:
+
+1. Install PyInstaller:
+```bash
+pip install pyinstaller
+```
+
+2. Create the executable:
+```bash
+pyinstaller --onefile --add-data "templates;templates" --add-data "static;static" --icon=truck_blue.ico run_app.py
+```
+
+This will create:
+- A single executable file in the `dist` directory
+- The executable will include all necessary files (templates, static files)
+- Custom truck icon for the application
+- No Python installation required to run the executable
+
 ## Support
 
 For technical support or feature requests, please contact jemin.b.kachhadiya@gmail.com or raise an issue in the repository.
