@@ -21,6 +21,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Validate driver name input
+    document.getElementById('driver-name').addEventListener('input', function(e) {
+        const input = e.target;
+        const regex = /^[A-Za-z\s]+$/;
+        if (!regex.test(input.value)) {
+            input.setCustomValidity('Only letters and spaces are allowed.');
+        } else {
+            input.setCustomValidity('');
+        }
+    });
+
     // Load active trucks into the "Active Trucks" tab
     async function loadActiveTrucks() {
         const response = await fetch('/api/trucks?status=active');
@@ -76,62 +87,106 @@ document.addEventListener('DOMContentLoaded', () => {
     
         const response = await fetch(url);
         const trucks = await response.json();
-
-        // Sort trucks by departure time (latest first)
-        trucks.sort((a, b) => new Date(b.departure_time) - new Date(a.departure_time));
+    
+        // Sort trucks by arrival time (latest first)
+        trucks.sort((a, b) => new Date(b.arrival_time) - new Date(a.arrival_time));
     
         const completedSection = document.getElementById('completed-section');
-        completedSection.innerHTML = '<h2>Completed Trucks</h2>';
+        completedSection.innerHTML = `
+            <div class="row">
+                <div class="col-md-9">
+                    <h2>Completed Trucks</h2>
+                    <div id="completed-trucks-list" class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Load Number</th>
+                                    <th>Driver Name</th>
+                                    <th>Arrival Time</th>
+                                    <th>Departure Time</th>
+                                    <th>Wait Time</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="completed-trucks-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <br><br>
+                    <h5>Date Filter (Arrival Time)</h5>
+                    <div class="form-group mb-3">
+                        <label for="completed-start-date">Start Date:</label>
+                        <input type="date" id="completed-start-date" class="form-control">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="completed-end-date">End Date:</label>
+                        <input type="date" id="completed-end-date" class="form-control">
+                    </div>
+                    <button id="completed-filter-btn" class="btn btn-secondary mt-2">Filter</button>
+                </div>
+            </div>`;    
     
+        const completedTrucksBody = document.getElementById('completed-trucks-body');
         trucks.forEach(truck => {
-            // Calculate wait time in seconds
             let waitTimeInSeconds = 0;
             if (truck.departure_time && truck.arrival_time) {
                 const arrivalTime = new Date(truck.arrival_time).getTime();
                 const departureTime = new Date(truck.departure_time).getTime();
-                waitTimeInSeconds = Math.floor((departureTime - arrivalTime) / 1000); // Convert milliseconds to seconds
+                waitTimeInSeconds = Math.floor((departureTime - arrivalTime) / 1000);
             }
-    
-            // Format wait time using the formatTime function
             const formattedWaitTime = formatTime(waitTimeInSeconds);
     
-            completedSection.innerHTML += `
-                <div class="truck-entry">
-                    <strong>Load Number:</strong> ${truck.load_number}<br>
-                    <strong>Driver Name:</strong> ${truck.driver_name}<br>
-                    <strong>Arrival Time:</strong> ${new Date(truck.arrival_time).toLocaleString()}<br>
-                    <strong>Departure Time:</strong> ${new Date(truck.departure_time).toLocaleString()}<br>
-                    <strong>Wait Time:</strong> ${formattedWaitTime}<br>
-                    <button class="btn btn-secondary btn-sm edit-btn" data-truck-id="${truck.id}">Edit</button>
-                </div><hr>`;
+            completedTrucksBody.innerHTML += `
+                <tr>
+                    <td>${truck.load_number}</td>
+                    <td>${truck.driver_name}</td>
+                    <td>${new Date(truck.arrival_time).toLocaleString()}</td>
+                    <td>${new Date(truck.departure_time).toLocaleString()}</td>
+                    <td>${formattedWaitTime}</td>
+                    <td><button class="btn btn-secondary btn-sm edit-btn" data-truck-id="${truck.id}">Edit</button></td>
+                </tr>`;
         });
     
         // Add event listeners to edit buttons
         document.querySelectorAll('.edit-btn').forEach(button => {
             button.addEventListener('click', handleEdit);
         });
+    
+        // Add event listener for date filter button
+        document.getElementById('completed-filter-btn').addEventListener('click', () => {
+            const startDateInput = document.getElementById('completed-start-date').value;
+            const endDateInput = document.getElementById('completed-end-date').value;
+            loadCompletedTrucks(startDateInput, endDateInput);
+        });
     }    
     
+    // Handle truck record editing
     async function handleEdit(e) {
         const truckId = e.target.getAttribute('data-truck-id');
-
-        const newLoadNumber = prompt('Enter new Load Number (leave blank to keep unchanged):');
-        const newDriverName = prompt('Enter new Driver Name (leave blank to keep unchanged):');
-        const newNotes = prompt('Enter new Notes (leave blank to keep unchanged):');
-
-        const password = prompt('Enter password:');
-
+    
+        // Collect all inputs in a single prompt sequence
+        const inputs = [
+            { label: 'Enter new Load Number (leave blank to keep unchanged):', key: 'load_number' },
+            { label: 'Enter new Driver Name (leave blank to keep unchanged):', key: 'driver_name' },
+            { label: 'Enter new Notes (leave blank to keep unchanged):', key: 'notes' },
+            { label: 'Enter password:', key: 'password' }
+        ];
+    
+        const updatedData = {};
+        for (const input of inputs) {
+            const value = prompt(input.label);
+            if (value === null) return; // Stop if user cancels
+            updatedData[input.key] = value || undefined; // Keep blank values as undefined
+        }
+    
+        // Send request to server
         const response = await fetch(`/api/truck-edit/${truckId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                load_number: newLoadNumber || undefined,
-                driver_name: newDriverName || undefined,
-                notes: newNotes || undefined,
-                password: password
-            })
+            body: JSON.stringify(updatedData)
         });
-        
+    
         if (response.ok) {
             alert('Truck record updated successfully');
             loadCompletedTrucks(); // Reload completed trucks list
@@ -155,7 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
         analysisSection.innerHTML = `
             <div class="row">
                 <div class="col-md-4">
-                    <h3>Date Filters</h3>
+                    <h5>Date Filter (Arrival Time)</h5>
                     <div class="form-group mb-3">
                         <label for="analysis-start-date">Start Date:</label>
                         <input type="date" id="analysis-start-date" class="form-control">

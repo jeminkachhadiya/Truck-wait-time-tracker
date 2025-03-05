@@ -1,7 +1,11 @@
-# Database files
-*.sqlite
-*.sqlite3
-*.db
-
 *venv/
 
+# Executable files
+*.exe
+*.out
+*.app
+*.spec
+build/
+dist/
+*.egg-info/
+*.egg

@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
+import re
+import os
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///trucks.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///C:/Database/trucks.db'
 db = SQLAlchemy(app)
 
 class Truck(db.Model):
@@ -21,9 +23,15 @@ def index():
 @app.route('/api/truck-arrival', methods=['POST'])
 def truck_arrival():
     data = request.json
+    driver_name = data.get('driver_name', '')
+    
+    # Check if driver_name contains only letters and spaces
+    if not re.match(r'^[A-Za-z\s]+$', driver_name):
+        return jsonify({'error': 'Driver name should contain only letters and spaces'}), 400
+    
     new_truck = Truck(
         load_number=data['load_number'],
-        driver_name=data['driver_name'],
+        driver_name=driver_name,
         notes=data.get('notes', ''),
         arrival_time=datetime.now()
     )
@@ -47,11 +55,13 @@ def get_trucks():
     query = Truck.query
     if status == 'completed':
         query = query.filter(Truck.departure_time.isnot(None))
-        if not start_date and not end_date:
+        if start_date and end_date:
+            start = datetime.strptime(start_date, '%Y-%m-%d')
+            end = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)  # Add one day to include the end date
+            query = query.filter(Truck.arrival_time >= start, Truck.arrival_time < end)
+        elif not start_date and not end_date:
             today = datetime.now().date()
-            query = query.filter(db.func.date(Truck.departure_time) == today)
-        elif start_date and end_date:
-            query = query.filter(Truck.departure_time.between(start_date, end_date))
+            query = query.filter(db.func.date(Truck.arrival_time) == today)
     else:
         query = query.filter(Truck.departure_time.is_(None))
 
@@ -72,7 +82,7 @@ def truck_edit(truck_id):
     password = data.get('password')
     
     # Verify password
-    if password != '247@247':
+    if password != '0000':
         return jsonify({'error': 'Unauthorized access. Incorrect password.'}), 403
     
     # Fetch the truck record
@@ -93,10 +103,12 @@ def wait_time_analysis():
 
     query = Truck.query.filter(Truck.departure_time.isnot(None))
     if start_date and end_date:
-        query = query.filter(Truck.departure_time.between(start_date, end_date))
+        start = datetime.strptime(start_date, '%Y-%m-%d')
+        end = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)  # Add one day to include the end date
+        query = query.filter(Truck.arrival_time >= start, Truck.arrival_time < end)
     else:
         today = datetime.now().date()
-        query = query.filter(db.func.date(Truck.departure_time) == today)
+        query = query.filter(db.func.date(Truck.arrival_time) == today)
 
     trucks = query.all()
 
