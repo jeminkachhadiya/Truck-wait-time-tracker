@@ -168,7 +168,7 @@ This will create:
 
 ## Support
 
-For technical support or feature requests, please contact jemin.b.kachhadiya@gmail.com or raise an issue in the repository.
+For technical support or feature requests, Raise an issue in the repository.
 
 ## Contributing
 
